@@ -2,7 +2,7 @@ server:
   port: 8087
 management:
   server:
-    port: 18083
+    port: 18087
   endpoints:
     web:
       exposure:
@@ -64,6 +64,7 @@ eureka:
     prefer-ip-address: true
 
 messaging:
+
   producer-name: notification-service
   crypto-key: ${EVENT_CRYPTO_KEY:pxUXlFhqre/31HUOw+mT9Oz80+rJz33fRtXx/kcGeTk=}
   notification:
