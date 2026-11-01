@@ -1,6 +1,16 @@
 server:
   port: 8087
-
+management:
+  server:
+    port: 18083
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 spring:
   config:
     import: optional:file:.env[.properties]
@@ -9,7 +19,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5433/notification_db
     username: ${DB_USERNAME:banking_admin}
-    password: ${DB_PASSWORD}
+    password: ${DB_PASSWORD:postgre2188}
   jpa:
     hibernate:
       ddl-auto: update
@@ -28,6 +38,23 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
+      concurrency: 3
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        linger.ms: 0
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
 
 eureka:
   client:
@@ -35,3 +62,11 @@ eureka:
       defaultZone: http://localhost:8761/eureka
   instance:
     prefer-ip-address: true
+
+messaging:
+  producer-name: notification-service
+  crypto-key: ${EVENT_CRYPTO_KEY:pxUXlFhqre/31HUOw+mT9Oz80+rJz33fRtXx/kcGeTk=}
+  notification:
+    # The link in the verification email is this address followed by the token.
+    # Set VERIFY_URL to the address of your K1 verification page or endpoint.
+    verification-url: ${VERIFY_URL:http://localhost:3000/verify.html?token=}
