@@ -63,10 +63,10 @@ eureka:
   instance:
     prefer-ip-address: true
 
-messaging:
-
-  producer-name: notification-service
-  crypto-key: ${EVENT_CRYPTO_KEY:pxUXlFhqre/31HUOw+mT9Oz80+rJz33fRtXx/kcGeTk=}
+app:
+  messaging:
+    producer-name: notification-service
+    crypto-key: ${EVENT_CRYPTO_KEY:pxUXlFhqre/31HUOw+mT9Oz80+rJz33fRtXx/kcGeTk=}
   notification:
     # The link in the verification email is this address followed by the token.
     # Set VERIFY_URL to the address of your K1 verification page or endpoint.
