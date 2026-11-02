@@ -605,3 +605,11 @@ curl -i http://localhost:8087/internal/notifications/nope
 * **`spring.mail.host` and `spring.mail.port` are not environment-driven.** They are fixed in `application.yaml` at `smtp.gmail.com` and `587`.
 * **The decrypted OTP code is never logged**, but it does travel over the network in the REST call from `otp-service` to `/internal/notifications/templated` as the `params.otp` value. That hop is plain HTTP.
 * **A failed send does not roll back the claim** unless the claim could be released. The original message stays in the DLT and can be replayed by hand.
+
+# notification-service
+
+**Author:** [Jahid Hasan](https://github.com/Md-Jahid-Hasan-10)
+
+**Project:** Banking Microservices
+
+> Owns outbound e-mail for the banking platform: it renders a fixed set of templates, sends them over SMTP, records every attempt in `notification_logs`, and announces a failed OTP delivery back to the saga. Application port **8087**, management/metrics port **18087**.
