@@ -25,9 +25,13 @@ public class KafkaConsumerConfig {
 
         // After the last retry: park the message on "<topic>.DLT", and when it was an OTP
         // that could not be delivered, tell the other services.
+        //
+        // The announcement comes first. If parking the message fails, the other
+        // services still learn that the OTP did not arrive, instead of the
+        // transfer waiting for a code that was never sent.
         ConsumerRecordRecoverer recoverer = (record, exception) -> {
-            deadLetters.accept(record, exception);
             announceOtpFailure(record, parser, announcer);
+            deadLetters.accept(record, exception);
         };
 
         ExponentialBackOffWithMaxRetries backOff = new ExponentialBackOffWithMaxRetries(4);

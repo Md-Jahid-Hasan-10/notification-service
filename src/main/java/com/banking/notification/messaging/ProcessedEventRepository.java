@@ -14,6 +14,15 @@ public interface ProcessedEventRepository extends JpaRepository<ProcessedEvent, 
             + "on conflict (id) do nothing", nativeQuery = true)
     int insertIfAbsent(@Param("id") String id);
 
+    /**
+     * Removes the claim again, so a failed action can be retried.
+     * Named differently from JpaRepository.deleteById on purpose, so the
+     * inherited delete is not shadowed by this one.
+     */
+    @Modifying
+    @Query(value = "delete from processed_events where id = :id", nativeQuery = true)
+    int deleteClaim(@Param("id") String id);
+
     @Modifying
     @Query("delete from ProcessedEvent p where p.processedAt < :cutoff")
     int deleteOlderThan(@Param("cutoff") Instant cutoff);

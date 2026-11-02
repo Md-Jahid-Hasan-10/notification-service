@@ -7,6 +7,17 @@ management:
     web:
       exposure:
         include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: never
+  health:
+    # The mail health indicator opens a real SMTP connection to Gmail on every
+    # call. That took about three seconds, which made the health check look
+    # like a timeout and made Prometheus scrape the service too slowly. The
+    # mail server is checked when an email is actually sent, so the indicator
+    # is not needed.
+    mail:
+      enabled: false
   metrics:
     distribution:
       percentiles-histogram:
@@ -52,7 +63,11 @@ spring:
       properties:
         enable.idempotence: true
         linger.ms: 0
-        max.block.ms: 5000
+        # max.block.ms must be at least as long as delivery.timeout.ms, and
+        # the publisher waits longer than both. Otherwise a publish can be
+        # reported as failed while the message is still on its way, and the
+        # retry sends it a second time.
+        max.block.ms: 15000
         request.timeout.ms: 5000
         delivery.timeout.ms: 10000
 
