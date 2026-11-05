@@ -1,5 +1,7 @@
+
 package com.banking.notification.messaging;
 
+import com.banking.notification.exception.PermanentDeliveryException;
 import com.banking.notification.messaging.payload.OtpIssuedPayload;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
@@ -15,49 +17,78 @@ import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 public class KafkaConsumerConfig {
 
     @Bean
-    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, String> kafkaTemplate,
-                                                 EventParser parser,
-                                                 OtpDeliveryFailureAnnouncer announcer) {
-        DeadLetterPublishingRecoverer deadLetters = new DeadLetterPublishingRecoverer(
-                kafkaTemplate,
-                (record, exception) -> new TopicPartition(
-                        record.topic() + TopicNames.DLT_SUFFIX, record.partition()));
+    public DefaultErrorHandler kafkaErrorHandler(
+            KafkaTemplate<String, String> kafkaTemplate,
+            EventParser parser,
+            OtpDeliveryFailureAnnouncer announcer) {
 
-        // After the last retry: park the message on "<topic>.DLT", and when it was an OTP
-        // that could not be delivered, tell the other services.
+        DeadLetterPublishingRecoverer deadLetters =
+                new DeadLetterPublishingRecoverer(
+                        kafkaTemplate,
+                        (record, exception) -> new TopicPartition(
+                                record.topic() + TopicNames.DLT_SUFFIX,
+                                record.partition()
+                        )
+                );
+
+        // After the last retry: park the message on "<topic>.DLT",
+        // and when it was an OTP that could not be delivered,
+        // tell the other services.
         //
-        // The announcement comes first. If parking the message fails, the other
-        // services still learn that the OTP did not arrive, instead of the
-        // transfer waiting for a code that was never sent.
+        // The announcement comes first. If parking the message fails,
+        // the other services still learn that the OTP did not arrive.
         ConsumerRecordRecoverer recoverer = (record, exception) -> {
             announceOtpFailure(record, parser, announcer);
             deadLetters.accept(record, exception);
         };
 
-        ExponentialBackOffWithMaxRetries backOff = new ExponentialBackOffWithMaxRetries(4);
+        ExponentialBackOffWithMaxRetries backOff =
+                new ExponentialBackOffWithMaxRetries(4);
+
         backOff.setInitialInterval(1_000L);
         backOff.setMultiplier(2.0);
         backOff.setMaxInterval(10_000L);
 
-        DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, backOff);
-        handler.addNotRetryableExceptions(InvalidEventException.class, EventCryptoException.class);
+        DefaultErrorHandler handler =
+                new DefaultErrorHandler(recoverer, backOff);
+
+        // These exceptions go directly to recovery without retrying.
+        handler.addNotRetryableExceptions(
+                InvalidEventException.class,
+                EventCryptoException.class,
+                PermanentDeliveryException.class
+        );
+
         return handler;
     }
 
-    private void announceOtpFailure(ConsumerRecord<?, ?> record, EventParser parser,
-                                    OtpDeliveryFailureAnnouncer announcer) {
-        if (!TopicNames.OTP_EVENTS.equals(record.topic()) || !(record.value() instanceof String value)) {
+    private void announceOtpFailure(
+            ConsumerRecord<?, ?> record,
+            EventParser parser,
+            OtpDeliveryFailureAnnouncer announcer) {
+
+        if (!TopicNames.OTP_EVENTS.equals(record.topic())
+                || !(record.value() instanceof String value)) {
             return;
         }
+
         try {
             EventEnvelope envelope = parser.parse(value);
+
             if ("OtpIssued".equals(envelope.eventType())) {
-                OtpIssuedPayload payload = parser.payload(envelope, OtpIssuedPayload.class);
-                announcer.announce(payload.transferId(), "The OTP email could not be delivered",
-                        envelope.eventId());
+                OtpIssuedPayload payload =
+                        parser.payload(envelope, OtpIssuedPayload.class);
+
+                announcer.announce(
+                        payload.transferId(),
+                        "The OTP email could not be delivered",
+                        envelope.eventId()
+                );
             }
+
         } catch (RuntimeException ignored) {
-            // The message is unreadable, so there is nothing to announce. It stays in the DLT.
+            // The message is unreadable, so there is nothing to announce.
+            // It stays in the DLT.
         }
     }
 }
